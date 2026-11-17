@@ -130,7 +130,6 @@ var PLAN={title:"Scheda Allenamento",ex:[
 {name:"Leg lowering",serie:"3 x 10 per lato",peso:"",rec:30,note:"Tenere sempre la gamba allenante tesa e l'altra gamba distesa",n:3,r:"10",u:"rip"},
 {name:"Plank braccia tese",serie:"3 x 45/60\"",peso:"",rec:30,note:"",n:3,r:"45",u:"sec"},
 {name:"Ponte glutei a terra ad una gamba",serie:"3 x 12/15",peso:"15",rec:45,note:"Isometria su di 2\" per ogni rep",n:3,r:"12",u:"rip"},
-{name:"Leg extension monolaterale",serie:"3 x 8",peso:"",rec:60,note:"Carico più alto",n:3,r:"8",u:"rip"},
 {name:"Wall sit (sedia al muro)",serie:"3/4 x 45/60\"",peso:"15",rec:60,note:"Schiena a parete, ginocchia a 90 gradi",n:4,r:"45",u:"sec"},
 {name:"Leg curl da seduto",serie:"3 x 10",peso:"",rec:60,note:"Salita normale, discesa controllata in 3/4\"",n:3,r:"10",u:"rip"},
 {name:"Calf raise alla macchina o liberi",serie:"4 x 8/10",peso:"",rec:60,note:"In isometria: sali sulla punta dei piedi e mantieni la contrazione su per 5/6\"",n:4,r:"8",u:"rip"}
@@ -141,7 +140,9 @@ var LEVELS=[
  {v:9,t:"Dura, restava 1 ripetizione"},
  {v:9.5,t:"Quasi al limite"},
  {v:10,t:"Al limite, non ne facevo un'altra"}];
-var LKEY='scheda-allenamento-v1',HMAX=60;
+var LKEY='scheda-allenamento-v1',HMAX=60,PV=2;
+/* PV2: rimosso 'Leg extension monolaterale' (era in posizione 10) */
+var MIGR={2:function(arr){arr.splice(9,1)}};
 
 /* ===== STATO PERSONALE ===== */
 function freshFrom(last){
@@ -155,13 +156,15 @@ function freshFrom(last){
 function normalize(u){
   if(!u||!u.cur||!Array.isArray(u.cur.ex))return null;
   u.hist=Array.isArray(u.hist)?u.hist:[];
+  for(var v=(u.pv||1)+1;v<=PV;v++){[u.cur].concat(u.hist).forEach(function(s){if(s&&Array.isArray(s.ex))MIGR[v](s.ex)})}
+  u.pv=PV;
   PLAN.ex.forEach(function(p,i){ if(!u.cur.ex[i])u.cur.ex[i]=freshFrom(u.hist[0]).ex[i] });
   [u.cur].concat(u.hist).forEach(function(s){s.ex.forEach(function(e,i){var p=PLAN.ex[i];if(p){if(e.ind==null)e.ind=p.note;e.sets.forEach(function(x){if(x.r==null)x.r=p.r})}})});
   return u;
 }
 var U=null;
 try{U=normalize(JSON.parse(localStorage.getItem(LKEY)))}catch(x){}
-if(!U)U={updatedAt:0,cur:freshFrom(null),hist:[]};
+if(!U)U={updatedAt:0,pv:PV,cur:freshFrom(null),hist:[]};
 
 var db=null,ref=null,where='telefono',saveT=null,writing=false,again=false;
 function last(){return U.hist[0]||null}
