@@ -90,6 +90,13 @@ textarea{resize:none;min-height:44px;line-height:1.35;overflow:hidden;field-sizi
 .bar .in > button{flex:1;padding:13px}
 #timer{display:flex;align-items:center;gap:10px;background:var(--fg);color:var(--bg);border-radius:12px;padding:6px 6px 6px 14px;flex:1}
 #timer.over{background:var(--accent);color:var(--accent-fg)}
+#timer.work{background:var(--ok);color:#fff}
+#timer.work.over{background:var(--accent);color:var(--accent-fg)}
+.sethead.timed,.set.timed{grid-template-columns:26px .7fr 1fr 1fr 42px}
+.set.timed .dbtn{font-size:.88rem;padding-left:2px;padding-right:2px}
+.play{padding:0;height:44px;width:42px;display:flex;align-items:center;justify-content:center;background:var(--ok-soft);color:var(--ok);font-size:1rem}
+.play.on{background:var(--ok);color:#fff}
+.set.timed .prev{grid-column:2 / 6}
 #timer .t{font-family:var(--display);font-weight:700;font-size:1.7rem;font-variant-numeric:tabular-nums;min-width:2.9em}
 #timer{min-width:0}
 #timer .l{flex:1;min-width:0;font-size:.8rem;opacity:.8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -201,13 +208,14 @@ function render(){
       '<div class="fields">'+
         '<label><span class="lbl">Il tuo recupero</span><div class="unit"><input inputmode="numeric" data-f="rec" value="'+(e.rec==null?'':e.rec)+'" placeholder="—"><span>sec</span></div></label>'+
         (e.rec?'<button class="primary" data-act="timer" aria-label="Avvia recupero">▶</button>':'<span></span>')+'</div>'+
-      '<div class="sets"><div class="sethead"><span></span><span class="lbl">'+(p.u==='rip'?'Rip.':p.u==='sec'?'Sec':'Min')+'</span><span class="lbl">Peso</span><span class="lbl">Difficoltà</span></div>';
+      '<div class="sets"><div class="sethead'+(p.u!=='rip'?' timed':'')+'"><span></span><span class="lbl">'+(p.u==='rip'?'Rip.':p.u==='sec'?'Sec':'Min')+'</span><span class="lbl">Peso</span><span class="lbl">Difficoltà</span>'+(p.u!=='rip'?'<span></span>':'')+'</div>';
     e.sets.forEach(function(s,j){
       var ls=le&&le.sets[j];
-      h+='<div class="set'+(s.d!=null?' filled':'')+'" data-j="'+j+'"><span class="sn">S'+(j+1)+'</span>'+
+      h+='<div class="set'+(s.d!=null?' filled':'')+(p.u!=='rip'?' timed':'')+'" data-j="'+j+'"><span class="sn">S'+(j+1)+'</span>'+
         '<input inputmode="numeric" data-f="r" value="'+esc(s.r)+'" placeholder="—" style="text-align:center" aria-label="'+(p.u==='rip'?'Ripetizioni':'Durata in '+p.u)+' serie '+(j+1)+'">'+
         '<div class="kg"><input inputmode="decimal" data-f="w" value="'+esc(s.w)+'" placeholder="—" aria-label="Peso serie '+(j+1)+'"><span>kg</span></div>'+
         '<button class="dbtn '+cls(s.d)+'" data-act="diff">'+(s.d==null?'Difficoltà':fmt(s.d))+'</button>'+
+        (p.u!=='rip'?'<button class="play'+(tInt&&tKind==='work'&&tRef===i+':'+j?' on':'')+'" data-act="work" aria-label="Cronometro serie '+(j+1)+'">▶</button>':'')+
         (ls&&(ls.w||ls.d!=null||ls.r)?'<div class="prev">Volta scorsa: '+(ls.r?esc(ls.r)+' '+p.u+' · ':'')+(ls.w?esc(ls.w)+' kg':'—')+(ls.d!=null?' · diff. '+fmt(ls.d):'')+'</div>':'')+
       '</div>';
     });
@@ -271,6 +279,11 @@ root.addEventListener('click',function(ev){
   else if(a==='add'){var l=e.sets[e.sets.length-1];e.sets.push({r:l?l.r:'',w:l?l.w:'',d:null});changed();render()}
   else if(a==='rm'){e.sets.pop();changed();render()}
   else if(a==='timer')startTimer(e.rec,PLAN.ex[i].name);
+  else if(a==='work'){
+    var j2=+b.closest('.set').dataset.j,p2=PLAN.ex[i],v=parseFloat(String(e.sets[j2].r||p2.r).replace(',','.'));
+    if(!v){status('Inserisci prima la durata della serie');return}
+    startTimer(p2.u==='min'?v*60:v,'S'+(j2+1)+' · '+p2.name,'work',i+':'+j2);
+  }
 });
 
 /* ===== POPUP ===== */
@@ -347,7 +360,7 @@ function openRecap(s,ending){
 }
 
 /* ===== BARRA IN BASSO + TIMER ===== */
-var bar=document.getElementById('bar'),tEnd=0,tInt=null,tLbl='';
+var bar=document.getElementById('bar'),tEnd=0,tInt=null,tLbl='',tKind='rec',tRef='';
 var barMode='';
 function drawBar(){
   var mode=tInt?'timer':'end';
@@ -358,15 +371,15 @@ function drawBar(){
   }
   if(mode==='timer'){
     var r=Math.round((tEnd-Date.now())/1000),neg=r<0,a=Math.abs(r),tm=bar.firstChild;
-    tm.className=neg?'over':'';
+    tm.className=(tKind==='work'?'work ':'')+(neg?'over':'');
     tm.querySelector('.t').textContent=(neg?'+':'')+Math.floor(a/60)+':'+String(a%60).padStart(2,'0');
-    tm.querySelector('.l').textContent=neg?'Recupero finito!':tLbl;
+    tm.querySelector('.l').textContent=neg?(tKind==='work'?'Tempo! Serie finita':'Recupero finito!'):tLbl;
   }
 }
-function startTimer(sec,lbl){tEnd=Date.now()+sec*1000;tLbl=lbl;buzzed=false;clearInterval(tInt);tInt=setInterval(tick,250);tick()}
+function startTimer(sec,lbl,kind,ref){var prev=tKind+tRef;tEnd=Date.now()+sec*1000;tLbl=lbl;tKind=kind||'rec';tRef=ref||'';buzzed=false;clearInterval(tInt);tInt=setInterval(tick,250);tick();if(prev!==tKind+tRef||tKind==='work')render()}
 var buzzed=false;
 function tick(){if(!buzzed&&Date.now()>tEnd){buzzed=true;try{navigator.vibrate&&navigator.vibrate([300,150,300])}catch(x){}}drawBar()}
-function stopTimer(){clearInterval(tInt);tInt=null;drawBar()}
+function stopTimer(){var w=tKind==='work';clearInterval(tInt);tInt=null;tKind='rec';tRef='';drawBar();if(w)render()}
 bar.addEventListener('click',function(ev){
   var t=ev.target.closest('[data-t]');if(!t)return;
   if(t.dataset.t==='15'){tEnd+=15000;if(tEnd>Date.now())buzzed=false;tick()}
